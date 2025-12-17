@@ -1,52 +1,64 @@
-name: Checkov Single File Scan
+name: ASH IaC Security Scan (HTML)
 
 on:
   workflow_dispatch:
     inputs:
-      file_path:
-        description: "Path to the CloudFormation YAML file (e.g. vpc.yaml)"
+      filename:
+        description: "CloudFormation YAML file in repo root (e.g. template.yaml)"
         required: true
         type: string
 
 jobs:
-  checkov-scan:
-    name: Scan CloudFormation File with Checkov
+  ash-scan:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate file exists in repo root
+        run: |
+          if [ ! -f "./${{ inputs.filename }}" ]; then
+            echo "❌ File not found in repo root: ${{ inputs.filename }}"
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install Checkov
+      - name: Install ASH
         run: |
           pip install --upgrade pip
-          pip install checkov
+          pip install automated-security-helper
 
-      - name: Validate file exists
+      - name: Create ASH config (CloudFormation only)
         run: |
-          if [ ! -f "${{ inputs.file_path }}" ]; then
-            echo "❌ File not found: ${{ inputs.file_path }}"
-            exit 1
-          fi
+          cat << 'EOF' > ash.yaml
+          project_name: "ASH CloudFormation Scan"
+          output:
+            formats:
+              - html
+            directory: ash-report
+          tools:
+            checkov:
+              enabled: true
+              options:
+                framework:
+                  - cloudformation
+                file:
+                  - "./${{ inputs.filename }}"
+            cfn_nag:
+              enabled: true
+          EOF
 
-      - name: Run Checkov on selected file and generate HTML report
+      - name: Run ASH scan
         run: |
-          mkdir -p checkov-report
-          checkov \
-            --file "./${{ inputs.file_path }}" \
-            --framework cloudformation \
-            --file-type yaml \
-            --output cli,html \
-            --output-file-path checkov-report/checkov-report.html \
-            --soft-fail false
+          ash --config ash.yaml
 
-      - name: Upload Checkov HTML report
+      - name: Upload ASH HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: checkov-html-report
-          path: checkov-report/checkov-report.html
+          name: ash-html-report
+          path: ash-report
