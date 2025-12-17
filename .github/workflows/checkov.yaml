@@ -23,20 +23,11 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install ASH
-        run: |
-          pip install --upgrade pip
-          pip install automated-security-helper
-
-      - name: Create ASH config (CloudFormation only)
+      - name: Create ASH config
         run: |
           cat << 'EOF' > ash.yaml
           project_name: "ASH CloudFormation Scan"
+          fail_on_findings: true
           output:
             formats:
               - html
@@ -53,9 +44,13 @@ jobs:
               enabled: true
           EOF
 
-      - name: Run ASH scan
+      - name: Run ASH (Docker)
         run: |
-          ash --config ash.yaml
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            public.ecr.aws/aws-labs/automated-security-helper:latest \
+            ash --config ash.yaml
 
       - name: Upload ASH HTML report
         uses: actions/upload-artifact@v4
