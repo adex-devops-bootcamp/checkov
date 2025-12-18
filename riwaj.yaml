@@ -7,12 +7,54 @@ Description: CloudFormation template to create a s3 bucket as secure as possible
 #     Description: ARN of the IAM User allowed to access the bucket
 
 Resources:
+  S3BUCKETLOGS:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: riwajs3access_logbucket986598659865
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      Tags:
+        - Key: Name
+          Value: riwajs3access_logbucket
+        - Key: Environment
+          Value: Dev
+  S3BucketLogPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BUCKETLOGS
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowS3ServerAccessLogs
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub 'arn:aws:s3:::${S3BUCKETLOGS}/*'
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
   S3BUCKET:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: riweajs3bucket986598659865
+      BucketName: riwajs3bucket98659865986500
+
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -30,6 +72,9 @@ Resources:
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3BUCKETLOGS
+        LogFilePrefix: access_logs/
       Tags:
         - Key: Name
           Value: Secureriwajbucket
@@ -60,8 +105,10 @@ Resources:
             Action: 's3:PutObject'
             Resource:
               - !Sub "arn:aws:s3:::${S3BUCKET}/*"
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: AES256
             
-  
           # - Sid: AllowSpecificIAMUserAccess
           #   Effect: Allow
           #   Principal:
@@ -78,3 +125,7 @@ Outputs:
   BucketArn:
     Description: Secure S3 Bucket ARN
     Value: !GetAtt S3BUCKET.Arn
+
+  AccessLogsBucket:
+    Description: S3 Access Log Bucket Name
+    Value: !Ref S3BUCKETLOGS
