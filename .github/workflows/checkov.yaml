@@ -58,7 +58,7 @@ jobs:
         run: |
           echo "Verify ash.yaml"
           cat ./ash.yaml
-          ash --mode local --config ./ash.yaml
+          ash scan ./${{ inputs.filename }} --mode local --config ./ash.yaml
 
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
